@@ -1,2 +1,5 @@
-streamlit
-openai
+# Pinned to the major versions this application is written against, so a new
+# major release cannot change behaviour without a deliberate, tested upgrade.
+# Patch and minor releases still flow through, which keeps security fixes coming.
+streamlit>=1.40,<2
+openai>=1.30,<2
