@@ -34,30 +34,30 @@ else:
     # Create a chat input field to allow the user to enter a message. This will display
     # automatically at the bottom of the page.
     if prompt := st.chat_input("What is up?"):
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        # Show the prompt straight away. It is only committed to the stored
+        # history once the turn succeeds, so a failed request leaves nothing
+        # behind to be resent with every later message.
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Generate a response using the OpenAI API. If the call fails, the prompt
-        # above is removed again so a failed turn does not linger in the history
-        # and get resent with every later message.
+        outgoing = [
+            {"role": m["role"], "content": m["content"]}
+            for m in st.session_state.messages
+        ]
+        outgoing.append({"role": "user", "content": prompt})
+
+        # Generate a response using the OpenAI API.
         try:
             stream = client.chat.completions.create(
                 model="gpt-3.5-turbo",
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages
-                ],
+                messages=outgoing,
                 stream=True,
             )
 
-            # Stream the response to the chat using `st.write_stream`, then store it
-            # in session state.
+            # Stream the response to the chat using `st.write_stream`.
             with st.chat_message("assistant"):
                 response = st.write_stream(stream)
         except OpenAIError as error:
-            st.session_state.messages.pop()
             st.error(
                 "That request to OpenAI failed, so your message was not sent. "
                 "Check that the API key is valid and still has credit, then try "
@@ -65,14 +65,14 @@ else:
                 icon="🚫",
             )
         else:
-            # An empty response would leave a blank turn in the history, which the
-            # API then rejects on the next request.
+            # Only a complete turn is stored. An empty response would leave a
+            # blank message that the API rejects on the next request.
             if response:
+                st.session_state.messages.append({"role": "user", "content": prompt})
                 st.session_state.messages.append(
                     {"role": "assistant", "content": response}
                 )
             else:
-                st.session_state.messages.pop()
                 st.warning(
                     "OpenAI returned an empty response, so nothing was added to "
                     "the conversation. Try sending the message again.",
