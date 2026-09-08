@@ -3,13 +3,20 @@ name: Ogenic code workflow
 # The Verify stage of the Ogenic code workflow, enforced in CI. Each job maps
 # to a rung of the verification ladder in .claude/skills/ogenic-code-workflow.
 on:
+  # Pull requests cover branch work, so pushes only need to run on main.
+  # Listening to both on every branch ran the whole suite twice per push.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# A newer push supersedes the run already in flight for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   toolkit:
@@ -61,6 +68,11 @@ jobs:
 
       - name: Check formatting
         run: ruff format --check .
+
+      # Rung 3: the existing tests pass. Standard library unittest, so there is
+      # nothing to install.
+      - name: Run tests
+        run: python -m unittest discover -s tests -t . -v
 
   secrets:
     name: Secret scan
