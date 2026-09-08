@@ -45,7 +45,7 @@ jobs:
           fi
 
   verify:
-    name: Lint and compile
+    name: Lint, compile and test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,8 +82,17 @@ jobs:
 
       - name: Scan tracked files for credentials
         run: |
+          # The excluded paths carry these patterns on purpose: the validator
+          # and this workflow define them, and the two test files below assert
+          # that the scanners catch them. Other test files stay in scope, so a
+          # credential committed into a new test is still caught.
           pattern='sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY'
-          if git grep -nIE "$pattern" -- . ':!tools/ogenic/validate_toolkit.py' ':!.claude' ':!.github/workflows'; then
+          if git grep -nIE "$pattern" -- . \
+               ':!tools/ogenic/validate_toolkit.py' \
+               ':!.claude' \
+               ':!.github/workflows' \
+               ':!tests/test_validate_toolkit.py' \
+               ':!tests/test_chat_errors.py'; then
             echo "error: a tracked file looks like it contains a real credential" >&2
             echo "rotate it at the provider first, then remove it from the tree and history" >&2
             exit 1
