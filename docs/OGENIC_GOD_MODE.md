@@ -51,10 +51,12 @@ Three jobs, matching the verification ladder:
 
 - **toolkit** validates the skills and commands, and proves a dry-run install
   writes nothing.
-- **verify** compiles all Python, runs `ruff check` across the repository and
-  `ruff format --check` across `tools/`.
+- **verify** compiles all Python, runs `ruff check` and `ruff format --check`
+  across the repository, then runs the test suite.
 - **secrets** scans every tracked file for credential patterns and fails the
-  build on a hit.
+  build on a hit. The validator, the workflow, `.claude` and the two test files
+  that assert the scanners fire are excluded, because they carry those patterns
+  on purpose. Every other file, new test files included, stays in scope.
 
 ## Using it
 
@@ -114,9 +116,10 @@ Anything else in that `.claude` directory is left alone.
 
 ```bash
 python3 tools/ogenic/validate_toolkit.py
+python3 -m unittest discover -s tests -t .
 ```
 
-Run this after editing any skill. A skill with malformed frontmatter is not a
+Run these after editing any skill or the validator. A skill with malformed frontmatter is not a
 skill that loads badly, it is a skill that does not load at all, and the failure
 is silent.
 
