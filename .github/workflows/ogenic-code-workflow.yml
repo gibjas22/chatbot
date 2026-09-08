@@ -59,11 +59,8 @@ jobs:
       - name: Lint
         run: ruff check .
 
-      # Scoped to the toolkit's own code. The existing application predates this
-      # workflow and is not format-clean; widen this to `.` once it has been
-      # formatted in a commit of its own.
-      - name: Check formatting of the toolkit code
-        run: ruff format --check tools/
+      - name: Check formatting
+        run: ruff format --check .
 
   secrets:
     name: Secret scan
