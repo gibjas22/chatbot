@@ -17,3 +17,21 @@ A simple Streamlit app that shows how to build a chatbot using OpenAI's GPT-3.5.
    ```
    $ streamlit run streamlit_app.py
    ```
+
+### Ogenic God Mode toolkit
+
+This repository ships the Ogenic God Mode toolkit: Claude Code skills, slash
+commands and CI checks that turn a coding session into a repeatable workflow
+of Frame, Plan, Build, Verify, Ship.
+
+Start a Claude Code session here and run `/god-mode`, or go straight to a
+stage with `/build`, `/debug`, `/review`, `/secure` or `/ship`.
+
+Install it into another project, or into your user config for every project:
+
+```
+$ ./tools/ogenic/install.sh --target ../my-other-project
+$ ./tools/ogenic/install.sh --user
+```
+
+Full documentation is in [docs/OGENIC_GOD_MODE.md](docs/OGENIC_GOD_MODE.md).
