@@ -23,9 +23,6 @@ UNINSTALL=0
 SKILLS=(
   ogenic-god-mode
   ogenic-code-workflow
-  ogenic-scaffold
-  ogenic-debug
-  ogenic-review
   ogenic-secure
   ogenic-ship
 )
@@ -33,8 +30,6 @@ SKILLS=(
 COMMANDS=(
   god-mode.md
   build.md
-  debug.md
-  review.md
   secure.md
   ship.md
 )

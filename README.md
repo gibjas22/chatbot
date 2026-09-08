@@ -31,7 +31,7 @@ commands and CI checks that turn a coding session into a repeatable workflow
 of Frame, Plan, Build, Verify, Ship.
 
 Start a Claude Code session here and run `/god-mode`, or go straight to a
-stage with `/build`, `/debug`, `/review`, `/secure` or `/ship`.
+stage with `/build`, `/secure` or `/ship`.
 
 Install it into another project, or into your user config for every project:
 

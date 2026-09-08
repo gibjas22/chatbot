@@ -13,13 +13,28 @@ dependency, nothing to compile, and nothing that phones home.
 
 | Skill | Does |
 |---|---|
-| `ogenic-god-mode` | The router. Picks the right skill for the request and sets the non-negotiables that apply to all of them |
-| `ogenic-code-workflow` | The five-stage workflow: Frame, Plan, Build, Verify, Ship. Stage gates, plan format, verification ladder, definition of done |
-| `ogenic-scaffold` | Starting new code well: finding the existing pattern, minimum viable structure, the anti-patterns that age badly |
-| `ogenic-debug` | Reproduce, isolate, hypothesise, fix the root cause, prove it. With time boxes so the loop terminates |
-| `ogenic-review` | Six ordered review passes, ranked findings, and a rule against reporting anything you cannot defend |
-| `ogenic-secure` | Secrets, input handling, dependencies and data exposure. Including what to do when a key has already been committed |
-| `ogenic-ship` | Commit granularity, message format, the pre-push gate, PR bodies, releases and rollback |
+| `ogenic-god-mode` | The router. Sends each request to the skill that owns it, and sets the non-negotiables |
+| `ogenic-code-workflow` | The five stages, the gates, the verification ladder and the definition of done |
+| `ogenic-secure` | This repository's secret and input rules, plus the recovery procedure for a committed credential |
+| `ogenic-ship` | The pre-push gate, commit message format and PR conventions |
+
+### Why only four
+
+An earlier version shipped seven, and three of them restated doctrine that the
+account-level skills already own better. `ogenic-debug` duplicated
+`systematic-debugging`, `ogenic-review` duplicated `code-review` and its
+siblings, and `ogenic-scaffold` duplicated `brainstorming`. Two competing
+doctrines meant Claude sometimes loaded one, sometimes the other, occasionally
+both with conflicting advice.
+
+They are gone. The router now names the account-level skill for each concern and
+reaches for an Ogenic skill only where this repository adds something: the house
+stages and gates, the rules that come from this app handling a user's API key,
+and the pre-push gate. `ogenic-scaffold`'s one genuinely local idea, finding the
+existing pattern before writing, moved into the workflow's Frame stage.
+
+Where an account skill and an Ogenic skill disagree, the Ogenic skill wins inside
+this repository, because it encodes decisions made here.
 
 Skills load on demand. Claude reads the description in each file's frontmatter
 and pulls in the body only when the task matches, so having seven installed
@@ -31,10 +46,11 @@ costs nothing until one is needed.
 |---|---|
 | `/god-mode <task>` | Route the task and set the posture |
 | `/build <change>` | The full five-stage code workflow |
-| `/debug <symptom>` | The debugging loop |
-| `/review <target>` | The review passes, ranked findings |
 | `/secure <target>` | The security pass |
 | `/ship` | Pre-push gate, commit, push, draft PR |
+
+For debugging and code review, use the account-level skills and the built-in
+`/code-review` and `/security-review` commands. Ogenic does not wrap them.
 
 ### Tooling, in `tools/ogenic/`
 
@@ -71,8 +87,6 @@ Or go straight to a stage:
 
 ```
 /build add streaming error handling to the chat loop
-/debug the app 401s after I paste a valid key
-/review staged
 /secure staged
 /ship
 ```
@@ -109,7 +123,7 @@ replace an installed copy with a newer one. To remove it again:
 ./tools/ogenic/install.sh --target ../my-other-project --uninstall
 ```
 
-Uninstall removes only the seven Ogenic skills and six Ogenic commands by name.
+Uninstall removes only the four Ogenic skills and four Ogenic commands by name.
 Anything else in that `.claude` directory is left alone.
 
 ## Checking it after a change
