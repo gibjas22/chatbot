@@ -374,8 +374,9 @@ def main(argv: list[str] | None = None) -> int:
     export_format = detect_format(data)
     if export_format == "unknown":
         print(
-            "Could not recognise this export. Expected a Claude export (chat_messages)\n"
-            "or a ChatGPT export (mapping). Is this the right conversations.json?",
+            "Could not recognise this export. Expected a Claude export\n"
+            "(chat_messages) or a ChatGPT export (mapping).\n"
+            "Is this the right conversations.json?",
             file=sys.stderr,
         )
         return 1

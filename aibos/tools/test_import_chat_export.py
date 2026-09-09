@@ -7,13 +7,18 @@ Standard library only, no pytest.
 
 from __future__ import annotations
 
-import sys
+import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import import_chat_export as importer  # noqa: E402
+# Load the importer by path rather than by name. It sits beside this file rather
+# than on the import path, and loading it explicitly keeps every import at the
+# top of the module and works whatever directory the tests are run from.
+_MODULE_PATH = Path(__file__).resolve().parent / "import_chat_export.py"
+_SPEC = importlib.util.spec_from_file_location("import_chat_export", _MODULE_PATH)
+importer = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(importer)
 
 
 CLAUDE_EXPORT = [
@@ -207,8 +212,6 @@ class TestRender(unittest.TestCase):
 
 class TestUniquePath(unittest.TestCase):
     def test_appends_a_suffix_on_collision(self):
-        import tempfile
-
         with tempfile.TemporaryDirectory() as raw:
             directory = Path(raw)
             first = importer.unique_path(directory, "2026-08-14", "topic")
