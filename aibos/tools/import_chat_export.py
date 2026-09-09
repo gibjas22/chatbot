@@ -353,7 +353,7 @@ def list_conversations(source: str | None = None, topic: str | None = None) -> i
     widths = [
         max(
             len(str(row[index]))
-            for row in rows + [("Date", "", "Topics", "Status", "Source", "")]
+            for row in [*rows, ("Date", "", "Topics", "Status", "Source", "")]
         )
         for index in (0, 2, 3, 4)
     ]

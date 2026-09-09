@@ -31,8 +31,10 @@ def render(data: dict) -> str:
         "Generated from `catalogue.json`. Do not edit by hand; edit the JSON and",
         "regenerate with `python3 ace/tools/build_catalogue_doc.py`.",
         "",
-        f"{len(categories)} categories x {len(lenses)} lenses = "
-        f"{len(categories) * len(lenses)} engines.",
+        (
+            f"{len(categories)} categories x {len(lenses)} lenses = "
+            f"{len(categories) * len(lenses)} engines."
+        ),
         "",
         "## The seven niche lenses",
         "",
