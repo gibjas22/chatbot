@@ -70,7 +70,7 @@ markers; replace any the session has now answered.
 ## 6. Regenerate the index
 
 ```bash
-python3 aibos/tools/import_claude_export.py --index-only
+python3 aibos/tools/import_chat_export.py --index-only
 ```
 
 ## 7. Report back

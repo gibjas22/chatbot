@@ -59,11 +59,16 @@ jobs:
       - name: Lint
         run: ruff check .
 
-      # Scoped to the toolkit's own code. The existing application predates this
-      # workflow and is not format-clean; widen this to `.` once it has been
-      # formatted in a commit of its own.
+      # Scoped to code written since this workflow landed. The existing
+      # application predates it and is not format-clean; widen this to `.` once
+      # that has been formatted in a commit of its own.
       - name: Check formatting of the toolkit code
-        run: ruff format --check tools/
+        run: ruff format --check tools/ aibos/tools/
+
+      # Rung 3: the behaviour is pinned by tests. Standard library unittest,
+      # so there is nothing to install.
+      - name: Run tests
+        run: python -m unittest discover -s aibos/tools -p 'test_*.py' -v
 
   secrets:
     name: Secret scan
