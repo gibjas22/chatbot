@@ -33,6 +33,40 @@ Markdown file per chat plus a regenerated index. See `tools/README.md`.
 worth keeping, copy `conversations/_TEMPLATE.md`, fill it in, commit it. Two
 minutes at the end of a session, and the next session starts warm.
 
+## Getting at what is in here
+
+Four ways, depending on what you are doing.
+
+**1. Browse the whole archive.**
+
+```bash
+python3 aibos/tools/import_chat_export.py --list
+```
+
+One row per captured conversation, newest first, showing date, source, status,
+topics and title. Narrow it with `--source chatgpt`, `--source claude-web` or
+`--topic leadgen`. The filters combine.
+
+**2. Search across everything, whichever tool it came from.**
+
+```bash
+python3 aibos/tools/import_chat_export.py --search "ElevenLabs"
+python3 aibos/tools/import_chat_export.py --search "briefing" --context 2
+```
+
+Searches every captured file regardless of source, and prints the filename,
+title, line number and matching line. `--context N` shows N lines either side.
+This is the one that pays off once the archive is large: it answers "where did
+we discuss this" without you remembering which tool you used at the time.
+
+**3. Read `INDEX.md`.** The same inventory as `--list`, but as a Markdown table
+with links, so it renders on GitHub and in any Markdown viewer. Regenerate it
+after editing frontmatter with `--index-only`.
+
+**4. Open the files.** They are plain Markdown in `conversations/`, named
+`YYYY-MM-DD-slug.md`. Any editor, `grep`, or Obsidian pointed at this folder
+will work. Nothing here is locked in a database.
+
 ## How to use it in a new session
 
 Point Claude at this folder at the start of the session:

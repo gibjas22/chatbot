@@ -7,7 +7,9 @@ Standard library only, no pytest.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import tempfile
 import unittest
 from pathlib import Path
@@ -219,6 +221,105 @@ class TestUniquePath(unittest.TestCase):
             second = importer.unique_path(directory, "2026-08-14", "topic")
             self.assertEqual(first.name, "2026-08-14-topic.md")
             self.assertEqual(second.name, "2026-08-14-topic-2.md")
+
+
+class TestArchiveReading(unittest.TestCase):
+    """Cover read_frontmatter, index_rows, list and search against a real folder."""
+
+    def setUp(self):
+        self._temp = tempfile.TemporaryDirectory()
+        directory = Path(self._temp.name)
+
+        (directory / "2026-08-14-voice.md").write_text(
+            '---\ntitle: "Voice layer providers"\ndate: 2026-08-14\n'
+            "source: claude-web\ntopics: [voice, providers]\nstatus: active\n---\n\n"
+            "# Voice layer providers\n\nElevenLabs for quality.\n",
+            encoding="utf-8",
+        )
+        (directory / "2026-08-06-briefing.md").write_text(
+            '---\ntitle: "Morning briefing"\ndate: 2026-08-06\n'
+            "source: chatgpt\ntopics: [briefing]\nstatus: settled\n---\n\n"
+            "# Morning briefing\n\nFires at 06:30 local.\n",
+            encoding="utf-8",
+        )
+        # Neither of these is a captured conversation and both must be ignored.
+        (directory / "_TEMPLATE.md").write_text(
+            "---\ntitle: x\n---\n", encoding="utf-8"
+        )
+        (directory / "README.md").write_text("# Conversations\n", encoding="utf-8")
+
+        self._original = importer.CONVERSATIONS_DIR
+        importer.CONVERSATIONS_DIR = directory
+
+    def tearDown(self):
+        importer.CONVERSATIONS_DIR = self._original
+        self._temp.cleanup()
+
+    def test_captured_files_excludes_template_and_readme(self):
+        names = [path.name for path in importer.captured_files()]
+        self.assertEqual(names, ["2026-08-14-voice.md", "2026-08-06-briefing.md"])
+
+    def test_read_frontmatter(self):
+        path = importer.CONVERSATIONS_DIR / "2026-08-06-briefing.md"
+        meta = importer.read_frontmatter(path)
+        self.assertEqual(meta["title"], "Morning briefing")
+        self.assertEqual(meta["source"], "chatgpt")
+        self.assertEqual(meta["status"], "settled")
+
+    def test_read_frontmatter_on_a_file_without_any(self):
+        path = importer.CONVERSATIONS_DIR / "plain.md"
+        path.write_text("no frontmatter here\n", encoding="utf-8")
+        self.assertEqual(importer.read_frontmatter(path), {})
+
+    def test_index_rows_are_newest_first(self):
+        dates = [row[0] for row in importer.index_rows()]
+        self.assertEqual(dates, ["2026-08-14", "2026-08-06"])
+
+    def test_list_returns_every_conversation(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(importer.list_conversations(), 2)
+
+    def test_list_filters_by_source(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            count = importer.list_conversations(source="chatgpt")
+        self.assertEqual(count, 1)
+        self.assertIn("Morning briefing", output.getvalue())
+        self.assertNotIn("Voice layer", output.getvalue())
+
+    def test_list_source_filter_is_case_insensitive(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(importer.list_conversations(source="ChatGPT"), 1)
+
+    def test_list_filters_by_topic(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(importer.list_conversations(topic="providers"), 1)
+
+    def test_list_with_no_matches_returns_zero(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(importer.list_conversations(source="nope"), 0)
+        self.assertIn("No conversations match", output.getvalue())
+
+    def test_search_finds_a_term_and_names_the_file(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(importer.search_conversations("ElevenLabs"), 1)
+        self.assertIn("2026-08-14-voice.md", output.getvalue())
+
+    def test_search_is_case_insensitive(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(importer.search_conversations("elevenlabs"), 1)
+
+    def test_search_spans_sources(self):
+        # "0" appears in both files' dates, so a hit in each proves the search
+        # is not stopping at the first file or filtering by source.
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            importer.search_conversations("2026-08")
+        self.assertIn("2026-08-14-voice.md", output.getvalue())
+        self.assertIn("2026-08-06-briefing.md", output.getvalue())
+
+    def test_search_with_no_match_returns_zero(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(importer.search_conversations("sourdough"), 0)
+        self.assertIn("No matches", output.getvalue())
 
 
 if __name__ == "__main__":

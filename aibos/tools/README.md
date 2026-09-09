@@ -59,6 +59,27 @@ capture the branch actually left on screen, which is what you remember having.
 Where that pointer is missing it falls back to ordering every message by
 timestamp. System messages and hidden messages are dropped either way.
 
+### Reading the archive back
+
+Importing is only half of it. These read the folder rather than writing to it:
+
+```bash
+# Everything captured, newest first
+python3 aibos/tools/import_chat_export.py --list
+
+# Just one source, or one topic
+python3 aibos/tools/import_chat_export.py --list --source chatgpt
+python3 aibos/tools/import_chat_export.py --list --topic leadgen
+
+# Search across every conversation, whatever tool it came from
+python3 aibos/tools/import_chat_export.py --search "ElevenLabs"
+python3 aibos/tools/import_chat_export.py --search "briefing" --context 2
+```
+
+`--search` is the one that matters once the archive grows past what you can
+hold in your head. It reports the filename, title, line number and matching
+line, and does not care whether the conversation started in Claude or ChatGPT.
+
 ### After importing
 
 The importer cannot summarise for you, so each imported file has empty summary

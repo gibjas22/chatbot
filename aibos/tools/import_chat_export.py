@@ -256,22 +256,42 @@ def render(record: dict) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def write_index() -> int:
-    """Regenerate INDEX.md from the frontmatter of every conversation file."""
+def captured_files() -> list[Path]:
+    """Every captured conversation file, newest first. Templates excluded."""
+    return [
+        path
+        for path in sorted(CONVERSATIONS_DIR.glob("*.md"), reverse=True)
+        if not path.name.startswith("_") and path.name != "README.md"
+    ]
+
+
+def read_frontmatter(path: Path) -> dict:
+    """Read a conversation file's YAML frontmatter into a flat dict.
+
+    Deliberately not a YAML parser. The frontmatter this tool writes is flat
+    `key: value` pairs, and keeping the reader trivial means the archive stays
+    readable with no dependency to install.
+    """
+    meta = {}
+    with path.open(encoding="utf-8") as handle:
+        if handle.readline().strip() != "---":
+            return meta
+        for line in handle:
+            if line.strip() == "---":
+                break
+            if ":" in line:
+                key, _, value = line.partition(":")
+                meta[key.strip()] = value.strip().strip('"')
+    return meta
+
+
+def index_rows() -> list[tuple]:
+    """Return one row per captured conversation, newest first."""
     rows = []
-    for path in sorted(CONVERSATIONS_DIR.glob("*.md"), reverse=True):
-        if path.name.startswith("_") or path.name == "README.md":
+    for path in captured_files():
+        meta = read_frontmatter(path)
+        if not meta:
             continue
-        meta = {}
-        with path.open(encoding="utf-8") as handle:
-            if handle.readline().strip() != "---":
-                continue
-            for line in handle:
-                if line.strip() == "---":
-                    break
-                if ":" in line:
-                    key, _, value = line.partition(":")
-                    meta[key.strip()] = value.strip().strip('"')
         rows.append(
             (
                 meta.get("date", "unknown"),
@@ -282,6 +302,12 @@ def write_index() -> int:
                 path.name,
             )
         )
+    return rows
+
+
+def write_index() -> int:
+    """Regenerate INDEX.md from the frontmatter of every conversation file."""
+    rows = index_rows()
 
     lines = [
         "# AIBOS conversation index",
@@ -306,6 +332,82 @@ def write_index() -> int:
 
     INDEX_PATH.write_text("\n".join(lines), encoding="utf-8")
     return len(rows)
+
+
+def list_conversations(source: str | None = None, topic: str | None = None) -> int:
+    """Print the captured archive as a table. Returns the number of rows shown."""
+    rows = index_rows()
+    if source:
+        rows = [row for row in rows if row[4].lower() == source.lower()]
+    if topic:
+        rows = [row for row in rows if topic.lower() in row[2].lower()]
+
+    if not rows:
+        print(
+            "Nothing captured yet."
+            if not (source or topic)
+            else "No conversations match that filter."
+        )
+        return 0
+
+    widths = [
+        max(
+            len(str(row[index]))
+            for row in rows + [("Date", "", "Topics", "Status", "Source", "")]
+        )
+        for index in (0, 2, 3, 4)
+    ]
+    header = (
+        f"{'Date':<{widths[0]}}  {'Source':<{widths[3]}}  "
+        f"{'Status':<{widths[2]}}  {'Topics':<{widths[1]}}  Title"
+    )
+    print(header)
+    print("-" * len(header))
+    for date, title, topics, status, source_value, _ in rows:
+        print(
+            f"{date:<{widths[0]}}  {source_value:<{widths[3]}}  "
+            f"{status:<{widths[2]}}  {topics:<{widths[1]}}  {title}"
+        )
+    print(f"\n{len(rows)} conversation(s).")
+    return len(rows)
+
+
+def search_conversations(term: str, context: int = 0) -> int:
+    """Print every captured line matching a term. Returns the match count."""
+    needle = term.lower()
+    matches = 0
+    for path in captured_files():
+        lines = path.read_text(encoding="utf-8").splitlines()
+        hits = [index for index, line in enumerate(lines) if needle in line.lower()]
+        if not hits:
+            continue
+
+        meta = read_frontmatter(path)
+        title = meta.get("title", path.stem)
+        print(
+            f"\n{path.name}  ({meta.get('source', 'unknown')}, {meta.get('date', 'unknown')})"
+        )
+        print(f"  {title}")
+        previous_end = None
+        for index in hits:
+            start = max(0, index - context)
+            end = min(len(lines), index + context + 1)
+            # Mark a jump so two separate blocks never read as continuous text.
+            if previous_end is not None and start > previous_end:
+                print("      ...")
+            for line_number in range(max(start, previous_end or 0), end):
+                marker = ">" if line_number == index else " "
+                print(f"  {marker} {line_number + 1:>4}: {lines[line_number].strip()}")
+            previous_end = end
+            matches += 1
+
+    if matches:
+        print(f"\n{matches} match(es) for {term!r}.")
+    else:
+        print(
+            f"No matches for {term!r} in {len(captured_files())} captured conversation(s)."
+        )
+    return matches
 
 
 def unique_path(directory: Path, date: str, slug: str) -> Path:
@@ -345,7 +447,41 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip importing and just regenerate INDEX.md",
     )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_only",
+        help="List what has been captured, newest first, and exit",
+    )
+    parser.add_argument(
+        "--search",
+        metavar="TERM",
+        help="Search captured conversations for a term and exit",
+    )
+    parser.add_argument(
+        "--source",
+        help="With --list, show only this source (claude-web, chatgpt, claude-code)",
+    )
+    parser.add_argument(
+        "--topic",
+        help="With --list, show only conversations whose topics contain this",
+    )
+    parser.add_argument(
+        "--context",
+        type=int,
+        default=0,
+        metavar="N",
+        help="With --search, show N lines either side of each match",
+    )
     args = parser.parse_args(argv)
+
+    if args.list_only:
+        list_conversations(source=args.source, topic=args.topic)
+        return 0
+
+    if args.search:
+        search_conversations(args.search, context=args.context)
+        return 0
 
     if args.index_only:
         print(f"Index regenerated: {write_index()} conversation(s).")
