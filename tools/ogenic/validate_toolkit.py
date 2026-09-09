@@ -30,9 +30,13 @@ MAX_NAME = 64
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 # A usable description tells the model when to reach for the skill. Accept any
-# of the natural phrasings rather than insisting on one exact wording.
+# of the natural phrasings rather than insisting on one exact wording, including
+# the narrowing adverbs a well scoped skill uses to keep itself from firing too
+# eagerly ("Use only when ...").
 TRIGGER_PATTERN = re.compile(
-    r"\buse (when|whenever|for|at|before|after|during|this|it)\b", re.IGNORECASE
+    r"\buse (?:(?:only|solely|just|strictly|exclusively|primarily|mainly) )?"
+    r"(when|whenever|for|at|before|after|during|this|it)\b",
+    re.IGNORECASE,
 )
 
 SECRET_PATTERN = re.compile(

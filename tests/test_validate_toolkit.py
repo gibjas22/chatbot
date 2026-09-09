@@ -130,6 +130,28 @@ class SkillValidationTests(unittest.TestCase):
                 problems = validator.validate_skill(self.root / "skills" / "trig")
                 self.assertEqual(problems, [], self.messages(problems))
 
+    def test_narrowed_trigger_phrases_are_accepted(self):
+        for phrase in ("Use only when", "Use solely when", "Use strictly for"):
+            with self.subTest(phrase=phrase):
+                description = (
+                    f"Does a specific job of real substance here. {phrase} it applies."
+                )
+                write_skill(
+                    self.root, "narrow", valid_skill_text("narrow", description)
+                )
+                problems = validator.validate_skill(self.root / "skills" / "narrow")
+                self.assertEqual(problems, [], self.messages(problems))
+
+    def test_a_stray_word_before_when_is_still_a_warning(self):
+        description = (
+            "Does a specific job of real substance here. Refuse to use anything "
+            "when it applies elsewhere."
+        )
+        write_skill(self.root, "stray", valid_skill_text("stray", description))
+        problems = validator.validate_skill(self.root / "skills" / "stray")
+        self.assertTrue(problems)
+        self.assertFalse(any(p.fatal for p in problems), self.messages(problems))
+
     def test_empty_body_is_fatal(self):
         write_skill(
             self.root,
