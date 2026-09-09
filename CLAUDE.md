@@ -63,6 +63,11 @@ tested migration, never a side effect.
 the CI secret scan, never by skipping `tests/` wholesale, so a credential
 committed into a future test file is still caught.
 
+**`.claude/skills/herdr/SKILL.md` is vendored, not authored here.** It is a
+verbatim copy of the skill Herdr ships, pinned to a commit and recorded in the
+sibling `UPSTREAM.md`. Refresh it with `herdr --skill`; never hand-edit it, or
+the next refresh reverts the edit without saying so.
+
 ## The workflow
 
 This repository carries the Ogenic toolkit. Start with `/god-mode` to route a

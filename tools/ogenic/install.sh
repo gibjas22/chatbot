@@ -25,6 +25,7 @@ SKILLS=(
   ogenic-code-workflow
   ogenic-secure
   ogenic-ship
+  herdr
 )
 
 COMMANDS=(

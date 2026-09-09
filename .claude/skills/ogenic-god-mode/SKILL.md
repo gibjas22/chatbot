@@ -29,6 +29,12 @@ then the Ogenic skill for what is particular to here.
 | Commit, branch, PR, release | `ogenic-ship`, plus `finishing-a-development-branch` | The pre-push gate, commit format |
 | Isolate a workspace | `using-git-worktrees` | Nothing, use it directly |
 | Parallel independent tasks | `dispatching-parallel-agents` | Nothing, use it directly |
+| Gibson names Herdr explicitly | `herdr` | Nothing, it is vendored from upstream |
+
+`herdr` is the one skill here nobody in this repository wrote, and it is
+deliberately narrow: it fires only when Herdr is named, and it stops itself
+unless `HERDR_ENV=1`. Do not reach for it merely because a job could use a
+background terminal or a second agent.
 
 If a row says "use it directly", do that. Loading an Ogenic skill on top would
 give you two versions of the same advice, which is how they drift apart.
