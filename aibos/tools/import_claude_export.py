@@ -164,7 +164,9 @@ def write_index() -> int:
     ]
     for date, title, topics, status, filename in rows:
         safe_title = title.replace("|", "\\|")
-        lines.append(f"| {date} | [{safe_title}](conversations/{filename}) | {topics} | {status} |")
+        lines.append(
+            f"| {date} | [{safe_title}](conversations/{filename}) | {topics} | {status} |"
+        )
     if not rows:
         lines.append("| | _Nothing captured yet_ | | |")
     lines.append("")
@@ -175,15 +177,21 @@ def write_index() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("export", type=Path, nargs="?", help="Path to conversations.json")
+    parser.add_argument(
+        "export", type=Path, nargs="?", help="Path to conversations.json"
+    )
     parser.add_argument(
         "--term",
         action="append",
         dest="terms",
         help="Match term, repeatable. Defaults to AIBOS related terms.",
     )
-    parser.add_argument("--all", action="store_true", help="Import every conversation, no filter")
-    parser.add_argument("--dry-run", action="store_true", help="Report what would be written")
+    parser.add_argument(
+        "--all", action="store_true", help="Import every conversation, no filter"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Report what would be written"
+    )
     parser.add_argument(
         "--index-only",
         action="store_true",
@@ -210,7 +218,10 @@ def main() -> int:
         return 1
 
     if not isinstance(data, list):
-        print("Expected conversations.json to contain a list of conversations.", file=sys.stderr)
+        print(
+            "Expected conversations.json to contain a list of conversations.",
+            file=sys.stderr,
+        )
         return 1
 
     terms = [term.lower() for term in (args.terms or DEFAULT_TERMS)]
