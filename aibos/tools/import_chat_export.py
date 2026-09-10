@@ -209,7 +209,9 @@ def load_export(path: Path) -> tuple[list, str]:
     conversations.json puts a manual step in front of every import. Returns the
     parsed conversations and a description of where they came from.
 
-    Raises ValueError with a message worth showing the user.
+    Raises ValueError when the content is unusable (unreadable archive, invalid
+    JSON) and TypeError when it parses but is the wrong shape. Both carry a
+    message worth showing the user verbatim.
     """
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as archive:
@@ -255,7 +257,7 @@ def load_export(path: Path) -> tuple[list, str]:
         raise ValueError(f"Could not parse {source} as JSON: {error}") from error
 
     if not isinstance(data, list):
-        raise ValueError(
+        raise TypeError(
             f"Expected {source} to contain a list of conversations, "
             f"found {type(data).__name__}."
         )
@@ -564,7 +566,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         data, source = load_export(args.export)
-    except ValueError as error:
+    except (ValueError, TypeError) as error:
         print(error, file=sys.stderr)
         return 1
     except (OSError, zipfile.BadZipFile) as error:

@@ -295,11 +295,30 @@ class TestLoadExport(unittest.TestCase):
         self.assertIn("JSON", str(caught.exception))
 
     def test_json_that_is_not_a_list_is_rejected(self):
+        """Wrong shape is a TypeError; wrong content is a ValueError."""
         path = self.directory / "conversations.json"
         path.write_text('{"conversations": []}', encoding="utf-8")
-        with self.assertRaises(ValueError) as caught:
+        with self.assertRaises(TypeError) as caught:
             importer.load_export(path)
-        self.assertIn("list", str(caught.exception))
+        message = str(caught.exception)
+        self.assertIn("list", message)
+        self.assertIn("dict", message, "should name what it found instead")
+
+    def test_main_exits_1_on_every_bad_input(self):
+        """Whichever exception load_export raises, the CLI must not traceback."""
+        cases = {
+            "not-a-list.json": '{"conversations": []}',
+            "bad.json": "{not json",
+        }
+        for name, payload in cases.items():
+            path = self.directory / name
+            path.write_text(payload, encoding="utf-8")
+            with (
+                self.subTest(case=name),
+                contextlib.redirect_stderr(io.StringIO()) as err,
+            ):
+                self.assertEqual(importer.main([str(path)]), 1)
+            self.assertTrue(err.getvalue().strip(), f"{name} should explain itself")
 
     def test_binary_input_is_reported_as_not_text(self):
         path = self.directory / "random.bin"
