@@ -10,8 +10,10 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 # Load the importer by path rather than by name. It sits beside this file rather
@@ -221,6 +223,90 @@ class TestUniquePath(unittest.TestCase):
             second = importer.unique_path(directory, "2026-08-14", "topic")
             self.assertEqual(first.name, "2026-08-14-topic.md")
             self.assertEqual(second.name, "2026-08-14-topic-2.md")
+
+
+class TestLoadExport(unittest.TestCase):
+    """Both vendors email a zip, so the importer has to read one directly."""
+
+    def setUp(self):
+        self._temp = tempfile.TemporaryDirectory()
+        self.directory = Path(self._temp.name)
+
+    def tearDown(self):
+        self._temp.cleanup()
+
+    def _write_json(self, name="conversations.json", payload=None):
+        path = self.directory / name
+        path.write_text(
+            json.dumps(payload if payload is not None else CLAUDE_EXPORT),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_reads_a_plain_json_file(self):
+        data, source = importer.load_export(self._write_json())
+        self.assertEqual(len(data), len(CLAUDE_EXPORT))
+        self.assertEqual(source, "conversations.json")
+
+    def test_reads_conversations_json_out_of_a_zip(self):
+        json_path = self._write_json("payload.json")
+        archive = self.directory / "export.zip"
+        with zipfile.ZipFile(archive, "w") as handle:
+            handle.write(json_path, "conversations.json")
+            handle.writestr("users.json", "[]")
+        data, source = importer.load_export(archive)
+        self.assertEqual(len(data), len(CLAUDE_EXPORT))
+        self.assertIn("export.zip", source)
+        self.assertIn("conversations.json", source)
+
+    def test_prefers_the_shallowest_conversations_json(self):
+        archive = self.directory / "export.zip"
+        with zipfile.ZipFile(archive, "w") as handle:
+            handle.writestr("backup/old/conversations.json", "[]")
+            handle.writestr("conversations.json", json.dumps(CLAUDE_EXPORT))
+        data, _ = importer.load_export(archive)
+        self.assertEqual(
+            len(data), len(CLAUDE_EXPORT), "should not pick the nested empty one"
+        )
+
+    def test_zip_without_an_export_names_what_it_found(self):
+        archive = self.directory / "wrong.zip"
+        with zipfile.ZipFile(archive, "w") as handle:
+            handle.writestr("readme.txt", "not an export")
+        with self.assertRaises(ValueError) as caught:
+            importer.load_export(archive)
+        self.assertIn("readme.txt", str(caught.exception))
+
+    def test_a_zip_that_will_not_open_says_so(self):
+        """The message must not blame JSON for a broken archive."""
+        archive = self.directory / "corrupt.zip"
+        archive.write_bytes(b"PK\x03\x04 truncated")
+        with self.assertRaises(ValueError) as caught:
+            importer.load_export(archive)
+        message = str(caught.exception)
+        self.assertIn("zip", message.lower())
+        self.assertNotIn("JSON", message)
+
+    def test_invalid_json_is_reported_as_such(self):
+        path = self.directory / "conversations.json"
+        path.write_text("{not json", encoding="utf-8")
+        with self.assertRaises(ValueError) as caught:
+            importer.load_export(path)
+        self.assertIn("JSON", str(caught.exception))
+
+    def test_json_that_is_not_a_list_is_rejected(self):
+        path = self.directory / "conversations.json"
+        path.write_text('{"conversations": []}', encoding="utf-8")
+        with self.assertRaises(ValueError) as caught:
+            importer.load_export(path)
+        self.assertIn("list", str(caught.exception))
+
+    def test_binary_input_is_reported_as_not_text(self):
+        path = self.directory / "random.bin"
+        path.write_bytes(bytes(range(256)))
+        with self.assertRaises(ValueError) as caught:
+            importer.load_export(path)
+        self.assertIn("not text", str(caught.exception))
 
 
 class TestArchiveReading(unittest.TestCase):

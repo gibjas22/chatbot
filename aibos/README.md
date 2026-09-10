@@ -25,9 +25,11 @@ transient. This folder is not.
 
 ## The two ways content gets in here
 
-**1. Bulk import of existing history.** Export your Claude data, then run the
-importer. It filters the export down to AIBOS conversations and writes one
-Markdown file per chat plus a regenerated index. See `tools/README.md`.
+**1. Bulk import of existing history.** Export your data from Claude or
+ChatGPT, then point the importer at the downloaded zip. No unzipping needed. It
+detects which vendor the export came from, filters it down to AIBOS
+conversations, and writes one Markdown file per chat plus a regenerated index.
+See `tools/README.md`.
 
 **2. Ongoing capture.** At the end of a working session that produced anything
 worth keeping, copy `conversations/_TEMPLATE.md`, fill it in, commit it. Two

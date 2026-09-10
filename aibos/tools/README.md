@@ -21,16 +21,19 @@ history has to come from an export you request yourself.
 | Claude | Settings, then Privacy, then Export data |
 | ChatGPT | Settings, then Data controls, then Export data |
 
-Both email you a download link, usually within a few minutes. Download, unzip,
-and find `conversations.json`.
+Both email you a download link, usually within a few minutes. **Point the
+importer straight at the downloaded zip; there is no need to unzip it.** It
+finds `conversations.json` inside, whatever else the archive contains. A plain
+`conversations.json` works too if you have already extracted one.
 
 ### Running it
 
 ```bash
-# See what would be imported, without writing anything
-python3 aibos/tools/import_chat_export.py ~/Downloads/export/conversations.json --dry-run
+# Straight from the downloaded zip, no unzipping
+python3 aibos/tools/import_chat_export.py ~/Downloads/chatgpt-export.zip --dry-run
+python3 aibos/tools/import_chat_export.py ~/Downloads/chatgpt-export.zip
 
-# Do the import
+# Or from an extracted conversations.json
 python3 aibos/tools/import_chat_export.py ~/Downloads/export/conversations.json
 
 # Widen or narrow the filter

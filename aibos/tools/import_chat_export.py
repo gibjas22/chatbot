@@ -23,8 +23,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,6 +37,9 @@ CONVERSATIONS_DIR = REPO_ROOT / "aibos" / "conversations"
 INDEX_PATH = REPO_ROOT / "aibos" / "INDEX.md"
 
 UNKNOWN_DATE = "0000-00-00"
+
+# Both vendors name the file this, inside otherwise unrelated archive layouts.
+EXPORT_FILENAME = "conversations.json"
 
 SPEAKERS = {"human": "Gibson", "user": "Gibson", "assistant": "Claude"}
 
@@ -195,6 +200,66 @@ def normalise(data: list, export_format: str) -> list[dict]:
 # --------------------------------------------------------------------------
 # Filtering and rendering
 # --------------------------------------------------------------------------
+
+
+def load_export(path: Path) -> tuple[list, str]:
+    """Read an export from a .json file or straight from the vendor's .zip.
+
+    Both Claude and ChatGPT email a zip, so requiring an unzipped
+    conversations.json puts a manual step in front of every import. Returns the
+    parsed conversations and a description of where they came from.
+
+    Raises ValueError with a message worth showing the user.
+    """
+    if zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as archive:
+            members = [
+                name
+                for name in archive.namelist()
+                if Path(name).name == EXPORT_FILENAME and not name.endswith("/")
+            ]
+            if not members:
+                listing = ", ".join(sorted(archive.namelist())[:8]) or "nothing"
+                raise ValueError(
+                    f"No {EXPORT_FILENAME} inside {path.name}. It contains: {listing}"
+                )
+            if len(members) > 1:
+                # Deterministic rather than arbitrary: the shallowest path wins,
+                # which is where both vendors put the real one.
+                members.sort(key=lambda name: (name.count("/"), name))
+            member = members[0]
+            # Reading a member's bytes cannot write outside the archive, so the
+            # usual zip path-traversal concern does not apply here.
+            raw = archive.read(member).decode("utf-8")
+        source = f"{path.name} ({member})"
+    elif path.suffix.lower() == ".zip":
+        # Named like a zip but not readable as one. Saying "could not parse as
+        # JSON" here would send the user looking in entirely the wrong place.
+        raise ValueError(
+            f"{path.name} looks like a zip but could not be read as one. "
+            "It may be truncated or still downloading."
+        )
+    else:
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as error:
+            raise ValueError(
+                f"{path.name} is not text. Point this at conversations.json "
+                f"or the export zip. ({error})"
+            ) from error
+        source = path.name
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Could not parse {source} as JSON: {error}") from error
+
+    if not isinstance(data, list):
+        raise ValueError(
+            f"Expected {source} to contain a list of conversations, "
+            f"found {type(data).__name__}."
+        )
+    return data, source
 
 
 def matches(record: dict, terms: list[str]) -> bool:
@@ -428,7 +493,10 @@ def unique_path(directory: Path, date: str, slug: str) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "export", type=Path, nargs="?", help="Path to conversations.json"
+        "export",
+        type=Path,
+        nargs="?",
+        help="Path to the export: either conversations.json or the vendor .zip",
     )
     parser.add_argument(
         "--term",
@@ -495,16 +563,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        data = json.loads(args.export.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        print(f"Could not parse {args.export} as JSON: {error}", file=sys.stderr)
+        data, source = load_export(args.export)
+    except ValueError as error:
+        print(error, file=sys.stderr)
         return 1
-
-    if not isinstance(data, list):
-        print(
-            "Expected conversations.json to contain a list of conversations.",
-            file=sys.stderr,
-        )
+    except (OSError, zipfile.BadZipFile) as error:
+        print(f"Could not read {args.export}: {error}", file=sys.stderr)
         return 1
 
     export_format = detect_format(data)
@@ -517,7 +581,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(f"Detected a {export_format} export with {len(data)} conversation(s).")
+    print(
+        f"Detected a {export_format} export in {source}: {len(data)} conversation(s)."
+    )
 
     terms = [term.lower() for term in (args.terms or DEFAULT_TERMS)]
     records = normalise(data, export_format)
@@ -552,5 +618,23 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def run() -> int:
+    """Entry point that survives its output being piped into head or less.
+
+    --list and --search produce exactly the sort of long output people pipe.
+    Without this, closing the pipe early raises BrokenPipeError mid-print and
+    Python prints a second error while flushing at shutdown. Matches the same
+    handling in ace/tools/ace_status.py.
+    """
+    try:
+        return main()
+    except BrokenPipeError:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        return 0
+    except KeyboardInterrupt:
+        return 130
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run())
