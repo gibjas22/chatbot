@@ -30,6 +30,7 @@ Read the request, then pick one entry point. Do not load every skill.
 | Judge code that already exists | `ogenic-review` | review, audit, is this good, check my |
 | Keys, secrets, inputs, dependencies, exposure | `ogenic-secure` | secret, API key, token, vulnerability, safe |
 | Commit, branch, PR, release | `ogenic-ship` | commit, push, PR, release, merge, tag |
+| Scan before a commit, or check exposure now | `strix` | strix, scan, am I safe, keep me safe, safe to push |
 
 Multi-part requests chain. "Fix the login bug and ship it" is `ogenic-debug`, then `ogenic-review`, then `ogenic-ship`. Announce the chain in one line before starting, then work it without further ceremony.
 
@@ -38,7 +39,8 @@ Multi-part requests chain. "Fix the login bug and ship it" is `ogenic-debug`, th
 These hold in every Ogenic skill. A skill may add rules, never relax these.
 
 1. **Never invent an API.** If you are unsure whether a method, flag or field exists, read the source or the docs. A plausible-looking call that does not exist costs more than the minute you saved.
-2. **Never commit a secret.** No keys, tokens, connection strings or customer data in tracked files, fixtures, tests or commit messages. See `ogenic-secure`.
+2. **Never commit a secret.** No keys, tokens, connection strings or customer data in tracked files, fixtures, tests or commit messages. See `ogenic-secure` for the discipline and `strix` for the watch that enforces it.
+   Strix is the one skill that is not routed to: it runs on every task, and its scanner runs before every push.
 3. **Never claim a state you have not observed.** Run the command, read the output, then report. If you could not run it, say so plainly.
 4. **Never widen the blast radius silently.** Touching a file the task did not call for needs a sentence explaining why.
 5. **Never leave the tree broken.** If you cannot finish, leave it compiling, with a note in your reply saying exactly what remains.

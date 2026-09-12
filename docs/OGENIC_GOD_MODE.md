@@ -20,6 +20,7 @@ dependency, nothing to compile, and nothing that phones home.
 | `ogenic-review` | Six ordered review passes, ranked findings, and a rule against reporting anything you cannot defend |
 | `ogenic-secure` | Secrets, input handling, dependencies and data exposure. Including what to do when a key has already been committed |
 | `ogenic-ship` | Commit granularity, message format, the pre-push gate, PR bodies, releases and rollback |
+| `strix` | The always-on safety watch. Three gates, a working pre-commit scanner, and the deep audit checklist |
 
 Skills load on demand. Claude reads the description in each file's frontmatter
 and pulls in the body only when the task matches, so having seven installed
@@ -35,6 +36,7 @@ costs nothing until one is needed.
 | `/review <target>` | The review passes, ranked findings |
 | `/secure <target>` | The security pass |
 | `/ship` | Pre-push gate, commit, push, draft PR |
+| `/strix [target]` | Run the Strix scan and report findings |
 
 ### Tooling, in `tools/ogenic/`
 

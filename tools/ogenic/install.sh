@@ -28,6 +28,7 @@ SKILLS=(
   ogenic-review
   ogenic-secure
   ogenic-ship
+  strix
 )
 
 COMMANDS=(
@@ -37,6 +38,7 @@ COMMANDS=(
   review.md
   secure.md
   ship.md
+  strix.md
 )
 
 usage() {
