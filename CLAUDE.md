@@ -2,44 +2,41 @@
 
 ## Owner
 
-Gibson Nyendwa. British English throughout. No em-dashes in any output: chat, code comments,
-commit messages, documentation or pull request bodies.
+Gibson Nyendwa. British English in all prose, code comments, commits and pull request bodies.
+No em-dashes anywhere.
 
-## Installed skills
+## Installed toolkit
 
-Two skills live in `.claude/skills/` and load automatically in this repository.
+Eight skills live in `.claude/skills/`, with slash commands in `.claude/commands/`. They load
+automatically in this repository. Full documentation: `docs/OGENIC_GOD_MODE.md`.
 
-### Strix — security and safety guardian
+### Ogenic God Mode
 
-`.claude/skills/strix/SKILL.md`
+`ogenic-god-mode` is the router. It sets the posture and picks the right skill, then hands off to
+one of: `ogenic-code-workflow` for building, `ogenic-scaffold` for new code, `ogenic-debug` for
+failures, `ogenic-review` for judging existing code, `ogenic-secure` for security discipline, and
+`ogenic-ship` for commits, pushes and releases.
 
-Runs on every task that touches code. Three gates:
+Start any engineering task there rather than loading every skill.
 
-1. **Reflex** on every file write: no hardcoded secrets, no secret in logs, untrusted input
-   treated as data, no destructive command without looking first, least privilege by default.
-2. **Pre-commit** before any commit, push or pull request:
-   `bash .claude/skills/strix/scripts/scan.sh`
-3. **Deep audit** on request or before a public release, using
-   `.claude/skills/strix/references/audit-checklist.md`.
+### Strix
 
-Strix never blocks ordinary work and never lectures. It fixes what it finds and says so in one line.
+`strix` is the exception to the router. It is not something you choose, it runs on every task.
 
-### Ogenic God Toolkit — code workflow
+- **Reflex checks** on every file write: no secret in a tracked file, no secret in a log, untrusted
+  input treated as data, no destructive command without reading the target, least privilege by
+  default.
+- **A scanner** before every commit or push: `bash .claude/skills/strix/scripts/scan.sh`
+- **A deep audit** on request or before a public release.
 
-`.claude/skills/ogenic-god-toolkit/SKILL.md`
+`ogenic-secure` is the standing discipline, Strix is the watch that enforces it. Read the first
+for the rules and the second for when they fire.
 
-Seven phases for any non-trivial change: Orient, Plan, Guard, Build, Verify, Ship, Report.
-No phase is skipped silently.
+## The rule that matters most
 
-The rule that matters most is **evidence before assertion**. Never say fixed, working, passing
-or complete without having run something that proves it. If tests fail, show the output. If a
-check could not run here, say so and give Gibson the command.
-
-Run every available quality gate in one pass:
-
-```bash
-bash .claude/skills/ogenic-god-toolkit/scripts/preflight.sh
-```
+Evidence before assertion. Never report something as fixed, working, passing or complete without
+having run a command that proves it. If a check failed, show the output. If it could not run here,
+say so plainly and give Gibson the command.
 
 ## This project
 
@@ -47,14 +44,18 @@ A Streamlit chatbot calling a hosted LLM.
 
 - Run: `streamlit run streamlit_app.py`
 - Install: `pip install -r requirements.txt`
-- No test suite yet. Adding logic worth testing means adding `pytest` and a `tests/` directory,
-  not shipping untested behaviour.
+- Validate the toolkit: `python tools/ogenic/validate_toolkit.py`
+- No test suite yet. Logic worth testing means adding `pytest` and a `tests/` directory, not
+  shipping untested behaviour.
 
-Live risks for this stack, per Strix: API key exposure, prompt injection through chat input,
-unbounded token cost, and XSS if model output is rendered as raw HTML. Detail in
-`.claude/skills/strix/SKILL.md`.
+CI runs three jobs on every push: toolkit validation, lint and compile, and a secret scan. See
+`.github/workflows/ogenic-code-workflow.yml`.
+
+Strix records four live risks in the application itself, none of them yet fixed: the API key path,
+prompt injection through chat input, unbounded token cost as history grows, and output rendering.
+Detail in `.claude/skills/strix/SKILL.md`.
 
 ## Git
 
-Development happens on a feature branch, never directly on `main`. Push with
-`git push -u origin <branch>` and open a draft pull request.
+Work on a feature branch, never directly on `main`. Push with `git push -u origin <branch>` and
+open a draft pull request.

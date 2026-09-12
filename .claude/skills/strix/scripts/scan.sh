@@ -27,12 +27,33 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
   exit 2
 fi
 
+# Prose is excluded from the code-smell checks. Documenting a dangerous pattern is
+# not committing one, and a security skill that flags its own examples is noise.
+# Credential checks still run over every file: a real key in a markdown file leaks
+# exactly as badly as one in source.
+# The scanner defines these patterns as literals, so it matches itself. Excluded for
+# the same reason the repository's CI excludes its own validator.
+PROSE=(':!*.md' ':!*.rst' ':!*.txt' ':!docs/**' ':!.claude/skills/strix/scripts/scan.sh')
+
 case "$MODE" in
-  staged) DIFF=$(git diff --cached -U0) ; FILES=$(git diff --cached --name-only --diff-filter=ACM) ;;
-  all)    DIFF=$(git diff HEAD -U0)     ; FILES=$(git ls-files) ;;
+  staged) DIFF=$(git diff --cached -U0)
+          CODE_DIFF=$(git diff --cached -U0 -- . "${PROSE[@]}")
+          FILES=$(git diff --cached --name-only --diff-filter=ACM) ;;
+  all)    DIFF=$(git diff HEAD -U0)
+          CODE_DIFF=$(git diff HEAD -U0 -- . "${PROSE[@]}")
+          FILES=$(git ls-files) ;;
   range)  [ -n "$RANGE" ] || { echo "strix: --range needs a value" >&2; exit 2; }
-          DIFF=$(git diff "$RANGE" -U0) ; FILES=$(git diff "$RANGE" --name-only --diff-filter=ACM) ;;
+          DIFF=$(git diff "$RANGE" -U0)
+          CODE_DIFF=$(git diff "$RANGE" -U0 -- . "${PROSE[@]}")
+          FILES=$(git diff "$RANGE" --name-only --diff-filter=ACM) ;;
 esac
+
+# `git diff HEAD` is empty on a clean tree, so --all falls back to scanning tracked
+# content itself rather than silently reporting a clean scan of nothing.
+if [ "$MODE" = "all" ] && [ -z "$DIFF" ]; then
+  DIFF=$(git grep -nI '' -- . 2>/dev/null | sed 's/^/+/')
+  CODE_DIFF=$(git grep -nI '' -- . "${PROSE[@]}" 2>/dev/null | sed 's/^/+/')
+fi
 
 FINDINGS=0
 
@@ -45,11 +66,22 @@ report() {
 
 # Only look at added lines.
 ADDED=$(printf '%s\n' "$DIFF" | grep -E '^\+' | grep -Ev '^\+\+\+' || true)
+ADDED_CODE=$(printf '%s\n' "$CODE_DIFF" | grep -E '^\+' | grep -Ev '^\+\+\+' || true)
 
+# check - runs over every added line, prose included. For leaked data.
 check() {
   local sev="$1" label="$2" pattern="$3"
   local hits
   hits=$(printf '%s\n' "$ADDED" | grep -Ein "$pattern" | head -5 || true)
+  [ -n "$hits" ] && report "$sev" "$label" "$hits"
+}
+
+# check_code - skips prose. For patterns that describe dangerous code, which a
+# document may legitimately mention.
+check_code() {
+  local sev="$1" label="$2" pattern="$3"
+  local hits
+  hits=$(printf '%s\n' "$ADDED_CODE" | grep -Ein "$pattern" | head -5 || true)
   [ -n "$hits" ] && report "$sev" "$label" "$hits"
 }
 
@@ -67,17 +99,17 @@ check HIGH     "Assigned secret literal"     '(password|passwd|secret|api_key|ap
 check HIGH     "Database URL with password"  '(postgres|postgresql|mysql|mongodb(\+srv)?|redis)://[^:@/[:space:]]+:[^@/[:space:]]+@'
 
 # --- risky code patterns -------------------------------------------------
-check HIGH     "shell=True with interpolation" 'subprocess\.[a-z_]+\(.*(f["'"'"']|%|\+|\.format\().*shell[[:space:]]*=[[:space:]]*True'
-check HIGH     "eval or exec on a variable"    '\b(eval|exec)\([a-zA-Z_]'
-check HIGH     "pickle load"                   'pickle\.loads?\('
-yaml_hits=$(printf '%s\n' "$ADDED" | grep -Ein 'yaml\.load\(' | grep -Eiv 'SafeLoader|safe_load' | head -5 || true)
+check_code HIGH   "shell=True with interpolation" 'subprocess\.[a-z_]+\(.*(f["'"'"']|%|\+|\.format\().*shell[[:space:]]*=[[:space:]]*True'
+check_code HIGH   "eval or exec on a variable"    '\b(eval|exec)\([a-zA-Z_]'
+check_code HIGH   "pickle load"                   'pickle\.loads?\('
+yaml_hits=$(printf '%s\n' "$ADDED_CODE" | grep -Ein 'yaml\.load\(' | grep -Eiv 'SafeLoader|safe_load' | head -5 || true)
 [ -n "$yaml_hits" ] && report HIGH "yaml.load without SafeLoader" "$yaml_hits"
-check HIGH     "TLS verification disabled"     '(verify[[:space:]]*=[[:space:]]*False|CURLOPT_SSL_VERIFYPEER.*0|rejectUnauthorized[[:space:]]*:[[:space:]]*false)'
-check MEDIUM   "SQL built by interpolation"    '(execute|query)\([[:space:]]*(f["'"'"']|["'"'"'].*["'"'"'][[:space:]]*[%+])'
-check MEDIUM   "Raw HTML rendering enabled"    'unsafe_allow_html[[:space:]]*=[[:space:]]*True|dangerouslySetInnerHTML'
-check MEDIUM   "Wildcard CORS"                 'origins[[:space:]]*=[[:space:]]*["'"'"']\*|Access-Control-Allow-Origin.*\*'
-check LOW      "Debug mode on"                 'debug[[:space:]]*=[[:space:]]*True|DEBUG[[:space:]]*=[[:space:]]*[Tt]rue'
-check LOW      "Leftover debug statement"      '\b(pdb\.set_trace|breakpoint\(\)|console\.log|debugger)\b'
+check_code HIGH   "TLS verification disabled"     '(verify[[:space:]]*=[[:space:]]*False|CURLOPT_SSL_VERIFYPEER.*0|rejectUnauthorized[[:space:]]*:[[:space:]]*false)'
+check_code MEDIUM "SQL built by interpolation"    '(execute|query)\([[:space:]]*(f["'"'"']|["'"'"'].*["'"'"'][[:space:]]*[%+])'
+check_code MEDIUM "Raw HTML rendering enabled"    'unsafe_allow_html[[:space:]]*=[[:space:]]*True|dangerouslySetInnerHTML'
+check_code MEDIUM "Wildcard CORS"                 'origins[[:space:]]*=[[:space:]]*["'"'"']\*|Access-Control-Allow-Origin.*\*'
+check_code LOW    "Debug mode on"                 'debug[[:space:]]*=[[:space:]]*True|DEBUG[[:space:]]*=[[:space:]]*[Tt]rue'
+check_code LOW    "Leftover debug statement"      '\b(pdb\.set_trace|breakpoint\(\)|console\.log|debugger)\b'
 
 # --- risky files ---------------------------------------------------------
 if [ -n "$FILES" ]; then

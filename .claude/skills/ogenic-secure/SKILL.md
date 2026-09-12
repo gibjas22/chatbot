@@ -29,6 +29,13 @@ git diff --staged | grep -nEi \
   'api[_-]?key|secret|password|passwd|token|bearer|authorization|private[_-]?key|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}'
 ```
 
+The `strix` skill wraps this and more in a script that also covers private keys, JSON web
+tokens, injection-prone code and credential files about to be tracked:
+
+```bash
+bash .claude/skills/strix/scripts/scan.sh
+```
+
 Any hit gets read by a human before the commit goes anywhere. Placeholders such as `your-api-key-here` are fine. Anything that looks real is treated as real.
 
 ### If a secret has been committed
