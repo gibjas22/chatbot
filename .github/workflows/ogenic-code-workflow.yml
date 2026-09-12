@@ -53,8 +53,14 @@ jobs:
 
       # Rung 2: the linter is clean. Installed here rather than in
       # requirements.txt so the application's runtime deps stay minimal.
+      #
+      # Pinned deliberately. Unpinned, a new ruff release turns CI red on a diff
+      # that has not changed, because each release enables new rules by default.
+      # That happened to this repository: ruff 0.16.7 added a finding a local
+      # 0.15.8 never reported. Bump this on purpose, with the fixes in the same
+      # commit, rather than being bumped by whatever released overnight.
       - name: Install ruff
-        run: pip install --disable-pip-version-check ruff
+        run: pip install --disable-pip-version-check ruff==0.16.7
 
       - name: Lint
         run: ruff check .

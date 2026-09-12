@@ -20,12 +20,14 @@ def _operator_key() -> str | None:
     """Read a deployment-wide key, if the operator configured one.
 
     `st.secrets` raises rather than returning None when no secrets file exists,
-    so the lookup is guarded. Missing configuration is a normal state here, not
-    an error: the app falls back to asking the visitor for their own key.
+    and the exception type has changed across Streamlit versions, so the guard
+    is deliberately broad. Missing configuration is a normal state here, not an
+    error: the app falls back to asking the visitor for their own key. Letting
+    any exception escape would take the whole page down over an absent file.
     """
     try:
         value = st.secrets.get("OPENAI_API_KEY")
-    except Exception:
+    except Exception:  # noqa: BLE001 - see above; the raised type varies by version
         value = None
     return value or None
 
