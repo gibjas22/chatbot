@@ -171,3 +171,12 @@ cython_debug/
 *.pfx
 credentials.json
 service-account*.json
+
+# ACE client programmes.
+# Brand vaults and content ledgers hold client pricing, pipeline state,
+# unpublished offers and named customer stories with consent records. The
+# folder structure and the README are shared; the filled-in content is not.
+# Remove these lines deliberately if this repository is private and you want
+# client work version-controlled here.
+ace/clients/*/
+!ace/clients/README.md
