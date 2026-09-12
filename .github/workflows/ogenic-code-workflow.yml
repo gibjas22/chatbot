@@ -1,0 +1,82 @@
+name: Ogenic code workflow
+
+# The Verify stage of the Ogenic code workflow, enforced in CI. Each job maps
+# to a rung of the verification ladder in .claude/skills/ogenic-code-workflow.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  toolkit:
+    name: Validate the Ogenic toolkit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate skills and commands
+        run: python tools/ogenic/validate_toolkit.py
+
+      - name: Check the installer parses
+        run: bash -n tools/ogenic/install.sh
+
+      - name: Dry-run the installer into a scratch target
+        run: |
+          mkdir -p "${RUNNER_TEMP}/ogenic-target"
+          ./tools/ogenic/install.sh --target "${RUNNER_TEMP}/ogenic-target" --dry-run
+          if [ -n "$(find "${RUNNER_TEMP}/ogenic-target" -type f)" ]; then
+            echo "error: dry run wrote files" >&2
+            exit 1
+          fi
+
+  verify:
+    name: Lint and compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Rung 1 of the ladder: it parses and imports.
+      - name: Compile all Python
+        run: python -m compileall -q .
+
+      # Rung 2: the linter is clean. Installed here rather than in
+      # requirements.txt so the application's runtime deps stay minimal.
+      - name: Install ruff
+        run: pip install --disable-pip-version-check ruff
+
+      - name: Lint
+        run: ruff check .
+
+      # Scoped to the toolkit's own code. The existing application predates this
+      # workflow and is not format-clean; widen this to `.` once it has been
+      # formatted in a commit of its own.
+      - name: Check formatting of the toolkit code
+        run: ruff format --check tools/
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan tracked files for credentials
+        run: |
+          pattern='sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY'
+          if git grep -nIE "$pattern" -- . ':!tools/ogenic/validate_toolkit.py' ':!.claude' ':!.github/workflows'; then
+            echo "error: a tracked file looks like it contains a real credential" >&2
+            echo "rotate it at the provider first, then remove it from the tree and history" >&2
+            exit 1
+          fi
+          echo "no credentials found in tracked files"
