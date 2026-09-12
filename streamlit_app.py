@@ -118,7 +118,15 @@ if prompt := st.chat_input("What is up?"):
             stream=True,
         )
         with st.chat_message("assistant"):
-            response = st.write_stream(stream)
+            # Stream into a placeholder for the live typing effect, then replace
+            # it with the sanitised text once complete. Without the second step
+            # the streaming path would render unsanitised model output, while
+            # replayed history got the sanitiser: the same content treated two
+            # different ways, with only the framework's own escaping in between.
+            placeholder = st.empty()
+            with placeholder.container():
+                response = st.write_stream(stream)
+            placeholder.markdown(chat_core.sanitise_markdown_links(response))
     except Exception as exc:  # noqa: BLE001 - any provider error must stay off the page
         st.error(chat_core.safe_error_message(exc))
         st.stop()

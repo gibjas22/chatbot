@@ -197,12 +197,37 @@ def test_raw_html_is_left_for_the_renderer_to_escape() -> None:
     assert chat_core.sanitise_markdown_links(text) == text
 
 
+def _app_source() -> str:
+    source = pathlib.Path(__file__).resolve().parents[1] / "streamlit_app.py"
+    return source.read_text(encoding="utf-8")
+
+
 def test_app_never_enables_unsafe_html() -> None:
     """The single most important rendering guarantee, asserted against source."""
-    source = pathlib.Path(__file__).resolve().parents[1] / "streamlit_app.py"
-    body = source.read_text(encoding="utf-8")
+    body = _app_source()
     assert f"{UNSAFE_HTML_FLAG}=True" not in body
     assert f"{UNSAFE_HTML_FLAG} = True" not in body
+
+
+def test_every_render_of_model_output_is_sanitised() -> None:
+    """Both render paths must sanitise, not just the replay of history.
+
+    A browser check caught this: the streamed reply was rendered straight from
+    the provider while replayed history went through the sanitiser, so the same
+    content was treated two different ways on the one screen.
+    """
+    body = _app_source()
+    # The streamed response is re-rendered through the sanitiser once complete.
+    assert "placeholder.markdown(chat_core.sanitise_markdown_links(response))" in body
+    # Replayed history is sanitised too.
+    assert 'st.markdown(chat_core.sanitise_markdown_links(message["content"]))' in body
+    # Every st.markdown call carrying model or user content goes through it.
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("st.markdown(", "placeholder.markdown(")):
+            assert "sanitise_markdown_links" in stripped, (
+                f"unsanitised render: {stripped}"
+            )
 
 
 # --- error handling ------------------------------------------------------
