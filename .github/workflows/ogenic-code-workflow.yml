@@ -59,11 +59,29 @@ jobs:
       - name: Lint
         run: ruff check .
 
-      # Scoped to the toolkit's own code. The existing application predates this
-      # workflow and is not format-clean; widen this to `.` once it has been
-      # formatted in a commit of its own.
-      - name: Check formatting of the toolkit code
-        run: ruff format --check tools/
+      # Scoped to the code that is known format-clean. The application and its
+      # tests joined this list when they were rewritten; widen further only
+      # alongside formatting the files being added.
+      - name: Check formatting
+        run: ruff format --check tools/ chat_core.py streamlit_app.py tests/
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The suite imports chat_core only, which pulls in neither streamlit nor
+      # openai, so the application's runtime dependencies are not needed here.
+      - name: Install test dependencies
+        run: pip install --disable-pip-version-check pytest
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
 
   secrets:
     name: Secret scan

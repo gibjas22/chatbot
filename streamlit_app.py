@@ -1,56 +1,124 @@
+import os
+
 import streamlit as st
 from openai import OpenAI
 
-# Show title and description.
+import chat_core
+
+MODEL = "gpt-3.5-turbo"
+
 st.title("💬 Chatbot")
 st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
+    "A simple chatbot built on OpenAI's GPT-3.5 model. "
+    "It is rate limited and length limited so a long conversation cannot run up "
+    "an unbounded bill. Learn how to build it by "
+    "[following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
 )
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
+
+def _operator_key() -> str | None:
+    """Read a deployment-wide key, if the operator configured one.
+
+    `st.secrets` raises rather than returning None when no secrets file exists,
+    so the lookup is guarded. Missing configuration is a normal state here, not
+    an error: the app falls back to asking the visitor for their own key.
+    """
+    try:
+        value = st.secrets.get("OPENAI_API_KEY")
+    except Exception:
+        value = None
+    return value or None
+
+
+operator_key = _operator_key()
+environment_key = os.environ.get("OPENAI_API_KEY")
+
+# Only ask the visitor for a key when the deployment has not supplied one.
+user_key = None
+if not (operator_key or environment_key):
+    user_key = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        help=(
+            "Used only for this browser session. It is never written to disk, "
+            "logged, or shown back to you."
+        ),
+    )
+
+api_key, key_source = chat_core.resolve_api_key(operator_key, environment_key, user_key)
+
+if not api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+    st.stop()
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+# Bounded retries and an explicit timeout, so a stalled provider cannot hold a
+# session open indefinitely or silently multiply the number of billed calls.
+client = OpenAI(
+    api_key=api_key,
+    timeout=chat_core.REQUEST_TIMEOUT_SECONDS,
+    max_retries=chat_core.MAX_RETRIES,
+)
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "request_count" not in st.session_state:
+    st.session_state.request_count = 0
+
+# Session state is per browser session, so one visitor's key and history are
+# never visible to another. It is not an authorisation boundary and is not
+# treated as one.
+with st.sidebar:
+    st.caption(f"API key source: {key_source}")
+    st.caption(
+        f"Requests used: {st.session_state.request_count} "
+        f"of {chat_core.MAX_REQUESTS_PER_SESSION}"
+    )
+    if st.button("Clear conversation"):
         st.session_state.messages = []
+        st.session_state.request_count = 0
+        st.rerun()
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# Rendered with Streamlit's default Markdown handling, which escapes raw HTML.
+# Raw-HTML rendering is deliberately never enabled anywhere in this file, and a
+# test in tests/test_chat_core.py asserts that against this source.
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(chat_core.sanitise_markdown_links(message["content"]))
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
+if prompt := st.chat_input("What is up?"):
+    validation = chat_core.validate_user_input(prompt)
+    if not validation.ok:
+        st.warning(validation.message)
+        st.stop()
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    if chat_core.session_limit_reached(st.session_state.request_count):
+        st.warning(
+            f"This session has used its limit of "
+            f"{chat_core.MAX_REQUESTS_PER_SESSION} requests. "
+            "Clear the conversation in the sidebar to start again."
+        )
+        st.stop()
 
-        # Generate a response using the OpenAI API.
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(chat_core.sanitise_markdown_links(prompt))
+
+    # Only the most recent turns are sent. Without this the whole history is
+    # resent every turn, so cost grows with the square of the conversation.
+    outbound = chat_core.trim_history(st.session_state.messages)
+
+    try:
+        st.session_state.request_count += 1
         stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
+            model=MODEL,
+            messages=[{"role": m["role"], "content": m["content"]} for m in outbound],
+            max_tokens=chat_core.MAX_OUTPUT_TOKENS,
             stream=True,
         )
-
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
         with st.chat_message("assistant"):
             response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+    except Exception as exc:  # noqa: BLE001 - any provider error must stay off the page
+        st.error(chat_core.safe_error_message(exc))
+        st.stop()
+
+    st.session_state.messages.append({"role": "assistant", "content": response})
