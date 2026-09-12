@@ -76,7 +76,7 @@ means it is an observation, and belongs in a notes section at the end.
 ## Threat model for this repository
 
 A Streamlit chatbot calling a hosted LLM. Ranked by what was actually found in the code, not by
-how alarming the category name sounds. Addressed in pull request #6.
+how alarming the category name sounds. All of these were addressed in pull request #6, now merged.
 
 - **Unbounded cost, real and material.** History grew without bound and was resent in full every
   turn, so spend grew with the square of the conversation until the request exceeded the context

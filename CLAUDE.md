@@ -45,15 +45,24 @@ A Streamlit chatbot calling a hosted LLM.
 - Run: `streamlit run streamlit_app.py`
 - Install: `pip install -r requirements.txt`
 - Validate the toolkit: `python tools/ogenic/validate_toolkit.py`
-- No test suite yet. Logic worth testing means adding `pytest` and a `tests/` directory, not
-  shipping untested behaviour.
+- Tests: `pip install -r requirements-dev.txt` then `python -m pytest tests/ -q`
+- The safety and cost rules live in `chat_core.py`, deliberately free of Streamlit and OpenAI
+  imports so they can be tested without a UI, a network call or a paid key. New logic worth
+  testing belongs there rather than inline in the app.
+- Ruff is pinned. Verify with the pinned version, not whichever binary is first on PATH, because
+  a newer ruff enables new rules by default and will disagree with CI.
 
-CI runs three jobs on every push: toolkit validation, lint and compile, and a secret scan. See
+CI runs four jobs on every push: toolkit validation, lint and compile, tests, and a secret scan. See
 `.github/workflows/ogenic-code-workflow.yml`.
 
-Strix records four live risks in the application itself, none of them yet fixed: the API key path,
-prompt injection through chat input, unbounded token cost as history grows, and output rendering.
-Detail in `.claude/skills/strix/SKILL.md`.
+The application risks Strix recorded were addressed in pull request #6: conversation cost and
+request usage are bounded, provider errors are redacted rather than shown as tracebacks, and both
+render paths sanitise model output. Two of the four were overstated in the original record and the
+correction is kept in `.claude/skills/strix/SKILL.md`, because overstating a risk spends the same
+credibility as missing one.
+
+One limitation stands. Strix runs locally before a push but is not enforced in CI, which runs its
+own simpler credential grep.
 
 ## Git
 
