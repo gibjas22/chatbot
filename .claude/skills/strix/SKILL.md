@@ -55,7 +55,9 @@ It is deliberately noisier than CI. A false positive costs a glance. A missed ke
 
 Then confirm by eye:
 
-- `.gitignore` covers `.env`, `.env.*`, `secrets.toml`, `*.pem`, `*.key`, credential JSON.
+- `.gitignore` covers `.env`, `.env.*`, `secrets.toml`, `*.pem`, `*.key`, credential JSON,
+  with `!.env.example` so the placeholder file stays tracked. The scanner allows that one
+  file by name and blocks every other `.env`.
 - Any new dependency is spelled exactly right. Typosquatting is the commonest supply chain attack
   on PyPI and npm.
 - Nothing in the diff would embarrass Gibson on a public GitHub page. Branches here are pushed
@@ -73,19 +75,29 @@ means it is an observation, and belongs in a notes section at the end.
 
 ## Threat model for this repository
 
-A Streamlit chatbot calling a hosted LLM. The live risks, in order of likelihood:
+A Streamlit chatbot calling a hosted LLM. Ranked by what was actually found in the code, not by
+how alarming the category name sounds. Addressed in pull request #6.
 
-- **API key exposure.** The key comes from `st.secrets` or the environment, never a literal in
-  `streamlit_app.py`. A key a visitor types into the browser field belongs to that session and is
-  never logged or persisted.
-- **Prompt injection.** Chat input and any retrieved document can carry instructions aimed at the
-  model. Delimit untrusted text, label it as data in the system prompt, and never let model output
-  trigger a tool, a shell command or a write without a check.
-- **Unbounded cost.** A public chat endpoint with your key attached is a spending surface. Cap
-  tokens, cap history length, rate limit.
-- **Output rendering.** Model output rendered with `unsafe_allow_html=True` is an XSS vector.
-- **Session state.** Streamlit session state is per browser session, not a security boundary.
-  Never treat it as authenticated.
+- **Unbounded cost, real and material.** History grew without bound and was resent in full every
+  turn, so spend grew with the square of the conversation until the request exceeded the context
+  window and failed outright. No output cap, no timeout, no retry bound, no per-session limit.
+  Now bounded in `chat_core.py`.
+- **Unhandled provider errors, real.** Every error was unhandled, so an invalid key rendered a
+  raw traceback into the browser. Errors are now one redacted, actionable line.
+- **API key handling, partly sound already.** The key field was already a password input and the
+  key was never persisted. What was missing was operator configuration, a placeholder
+  `.env.example`, and redaction of anything credential-shaped before display.
+- **Output rendering, largely sound already.** Streamlit escapes raw HTML unless
+  `unsafe_allow_html` is set, and this app never set it. The gap was link schemes and the absence
+  of a test pinning the guarantee. Both closed.
+- **Prompt injection, narrow.** The app has no tools, no retrieval, no system prompt and no
+  privileged actions, so a user can only influence their own reply. Say that plainly rather than
+  inventing tool-execution risk. History trimming now preserves a leading system message so the
+  separation holds if one is added later.
+
+The correction matters more than the list. An earlier version of this file called all four
+equally live. Two were largely handled by framework defaults. Overstating a risk spends the same
+credibility as missing one.
 
 Vulnerable and fixed code pairs for each: `references/threat-patterns.md`.
 

@@ -113,7 +113,12 @@ check_code LOW    "Leftover debug statement"      '\b(pdb\.set_trace|breakpoint\
 
 # --- risky files ---------------------------------------------------------
 if [ -n "$FILES" ]; then
-  RISKY=$(printf '%s\n' "$FILES" | grep -Ei '(^|/)\.env($|\.)|secrets\.toml$|\.pem$|\.key$|\.p12$|\.pfx$|credentials\.json$|service-account.*\.json$' || true)
+  # `.env.example` and its siblings are the one .env file that SHOULD be tracked:
+  # both ogenic-secure and this skill tell you to create one. Flagging the
+  # practice they recommend is how a scanner teaches people to ignore it.
+  RISKY=$(printf '%s\n' "$FILES" \
+    | grep -Ei '(^|/)\.env($|\.)|secrets\.toml$|\.pem$|\.key$|\.p12$|\.pfx$|credentials\.json$|service-account.*\.json$' \
+    | grep -Eiv '\.(example|sample|template|dist)$|(^|/)\.env\.example$' || true)
   [ -n "$RISKY" ] && report CRITICAL "Credential file about to be tracked" "$RISKY"
 
   BIG=""
