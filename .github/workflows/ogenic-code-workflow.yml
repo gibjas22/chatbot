@@ -53,17 +53,24 @@ jobs:
 
       # Rung 2: the linter is clean. Installed here rather than in
       # requirements.txt so the application's runtime deps stay minimal.
+      #
+      # Pinned deliberately. Unpinned, a new ruff release turns CI red on a diff
+      # that has not changed, because each release enables new rules by default.
+      # That happened to this repository: ruff 0.16.7 added a finding a local
+      # 0.15.8 never reported. Bump this on purpose, with the fixes in the same
+      # commit, rather than being bumped by whatever released overnight.
       - name: Install ruff
-        run: pip install --disable-pip-version-check ruff
+        run: pip install --disable-pip-version-check ruff==0.16.7
 
       - name: Lint
         run: ruff check .
 
-      # Scoped to code written since this workflow landed. The existing
-      # application predates it and is not format-clean; widen this to `.` once
-      # that has been formatted in a commit of its own.
-      - name: Check formatting of the toolkit code
-        run: ruff format --check tools/ aibos/tools/ ace/tools/
+      # Scoped to the code that is known format-clean. The application and its
+      # tests joined this list when they were rewritten, and the AIBOS and ACE
+      # tooling was written format-clean; widen further only alongside
+      # formatting the files being added.
+      - name: Check formatting
+        run: ruff format --check tools/ chat_core.py streamlit_app.py tests/ aibos/tools/ ace/tools/
 
       # Rung 3: the behaviour is pinned by tests. Standard library unittest,
       # so there is nothing to install.
@@ -77,6 +84,24 @@ jobs:
       # two drift apart silently.
       - name: Check the ACE catalogue doc is current
         run: python ace/tools/build_catalogue_doc.py --check
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The suite imports chat_core only, which pulls in neither streamlit nor
+      # openai, so the application's runtime dependencies are not needed here.
+      - name: Install test dependencies
+        run: pip install --disable-pip-version-check pytest
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
 
   secrets:
     name: Secret scan
