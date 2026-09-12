@@ -98,7 +98,11 @@ jobs:
       - name: Scan tracked files for credentials
         run: |
           pattern='sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY'
-          if git grep -nIE "$pattern" -- . ':!tools/ogenic/validate_toolkit.py' ':!.claude' ':!.github/workflows'; then
+          # Excluded by name, never by skipping tests/ wholesale: these files
+          # define or assert the patterns on purpose. Every other file, new test
+          # files included, stays in scope, so a credential committed into one is
+          # still caught.
+          if git grep -nIE "$pattern" -- . ':!tools/ogenic/validate_toolkit.py' ':!.claude' ':!.github/workflows' ':!tests/test_validate_toolkit.py'; then
             echo "error: a tracked file looks like it contains a real credential" >&2
             echo "rotate it at the provider first, then remove it from the tree and history" >&2
             exit 1

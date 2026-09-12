@@ -21,10 +21,37 @@ dependency, nothing to compile, and nothing that phones home.
 | `ogenic-secure` | Secrets, input handling, dependencies and data exposure. Including what to do when a key has already been committed |
 | `ogenic-ship` | Commit granularity, message format, the pre-push gate, PR bodies, releases and rollback |
 | `strix` | The always-on safety watch. Three gates, a working pre-commit scanner, and the deep audit checklist |
+| `herdr` | Drives the Herdr terminal multiplexer from inside one of its panes. Vendored from upstream, not written here |
 
 Skills load on demand. Claude reads the description in each file's frontmatter
 and pulls in the body only when the task matches, so having seven installed
 costs nothing until one is needed.
+
+### The one vendored skill
+
+`herdr` is the exception to everything above: it is not an Ogenic skill and no
+part of it was written here. It is a byte-for-byte copy of the agent skill that
+[Herdr](https://github.com/herdrdev/herdr) ships with its binary, teaching
+Claude to drive Herdr's panes, tabs and neighbouring agents through the `herdr`
+CLI. Apache-2.0, pinned to a commit.
+
+`.claude/skills/herdr/UPSTREAM.md` records the commit, the file's SHA-256 and
+the two commands that refresh it. Do not edit `SKILL.md` itself; the next
+refresh would silently revert the edit.
+
+It guards itself. Its first instruction is to check `HERDR_ENV=1` and stop when
+that is unset, so outside a Herdr pane it does nothing at all.
+
+**On your own machine, prefer Herdr's own installer**, which keeps the skill in
+step with the binary you actually have:
+
+```bash
+npx skills add herdrdev/herdr --skill herdr -g   # or: herdr --skill > ~/.claude/skills/herdr/SKILL.md
+```
+
+The copy here exists for remote sessions, which get a fresh container each time
+and lose anything installed globally. A file in the repository is present in
+every session on every machine with no install step.
 
 ### Slash commands, in `.claude/commands/`
 
@@ -109,7 +136,8 @@ replace an installed copy with a newer one. To remove it again:
 ./tools/ogenic/install.sh --target ../my-other-project --uninstall
 ```
 
-Uninstall removes only the seven Ogenic skills and six Ogenic commands by name.
+Uninstall removes only the nine skills and seven commands this toolkit
+installs, by name.
 Anything else in that `.claude` directory is left alone.
 
 ## Checking it after a change
