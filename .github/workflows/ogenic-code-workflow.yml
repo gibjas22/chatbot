@@ -66,10 +66,24 @@ jobs:
         run: ruff check .
 
       # Scoped to the code that is known format-clean. The application and its
-      # tests joined this list when they were rewritten; widen further only
-      # alongside formatting the files being added.
+      # tests joined this list when they were rewritten, and the AIBOS and ACE
+      # tooling was written format-clean; widen further only alongside
+      # formatting the files being added.
       - name: Check formatting
-        run: ruff format --check tools/ chat_core.py streamlit_app.py tests/
+        run: ruff format --check tools/ chat_core.py streamlit_app.py tests/ aibos/tools/ ace/tools/
+
+      # Rung 3: the behaviour is pinned by tests. Standard library unittest,
+      # so there is nothing to install.
+      - name: Run AIBOS tests
+        run: python -m unittest discover -s aibos/tools -p 'test_*.py' -v
+
+      - name: Run ACE tests
+        run: python -m unittest discover -s ace/tools -p 'test_*.py' -v
+
+      # CATALOGUE.md is generated from catalogue.json. Fail rather than let the
+      # two drift apart silently.
+      - name: Check the ACE catalogue doc is current
+        run: python ace/tools/build_catalogue_doc.py --check
 
   tests:
     name: Tests
