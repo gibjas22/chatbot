@@ -1,0 +1,27 @@
+# Dependency updates. The requirements are pinned to a major version on
+# purpose, so Dependabot's job here is to surface the minor and patch releases
+# inside those ranges, and to keep the GitHub Actions current: the workflow
+# already had to move off actions pinned to a deprecated Node runtime once.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies

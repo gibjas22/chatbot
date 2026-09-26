@@ -31,6 +31,7 @@ Read the request, then pick one entry point. Do not load every skill.
 | Keys, secrets, inputs, dependencies, exposure | `ogenic-secure` | secret, API key, token, vulnerability, safe |
 | Commit, branch, PR, release | `ogenic-ship` | commit, push, PR, release, merge, tag |
 | Scan before a commit, or check exposure now | `strix` | strix, scan, am I safe, keep me safe, safe to push |
+| Gibson names Herdr explicitly | `herdr` | herdr, pane, tab, workspace, another agent |
 
 Multi-part requests chain. "Fix the login bug and ship it" is `ogenic-debug`, then `ogenic-review`, then `ogenic-ship`. Announce the chain in one line before starting, then work it without further ceremony.
 

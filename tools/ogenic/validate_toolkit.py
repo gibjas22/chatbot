@@ -30,16 +30,24 @@ MAX_NAME = 64
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 # A usable description tells the model when to reach for the skill. Accept any
-# of the natural phrasings rather than insisting on one exact wording.
+# of the natural phrasings rather than insisting on one exact wording, including
+# the narrowing adverbs a well scoped skill uses to keep itself from firing too
+# eagerly ("Use only when ...").
 TRIGGER_PATTERN = re.compile(
-    r"\buse (when|whenever|for|at|before|after|during|this|it)\b", re.IGNORECASE
+    r"\buse (?:(?:only|solely|just|strictly|exclusively|primarily|mainly) )?"
+    r"(when|whenever|for|at|before|after|during|this|it)\b",
+    re.IGNORECASE,
 )
 
+# The PEM arm requires the `-----` delimiters a real key always carries. Without
+# them the pattern matched its own documentation: a skill that teaches you to run
+# `git log -S 'BEGIN PRIVATE KEY'` was reported as containing a private key. This
+# is narrower, not weaker, because no PEM block omits the dashes.
 SECRET_PATTERN = re.compile(
     r"(sk-[A-Za-z0-9]{16,}"
     r"|ghp_[A-Za-z0-9]{20,}"
     r"|AKIA[0-9A-Z]{16}"
-    r"|BEGIN [A-Z ]*PRIVATE KEY)"
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
 )
 
 

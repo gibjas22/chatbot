@@ -101,13 +101,18 @@ if prompt := st.chat_input("What is up?"):
         )
         st.stop()
 
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # The prompt is shown at once but is not written to history until the turn
+    # completes. Appending first leaves an orphaned user message behind whenever
+    # the provider call fails, and trim_history then resends that orphan on every
+    # later turn: two user messages in a row, for a turn the model never answered.
     with st.chat_message("user"):
         st.markdown(chat_core.sanitise_markdown_links(prompt))
 
     # Only the most recent turns are sent. Without this the whole history is
     # resent every turn, so cost grows with the square of the conversation.
-    outbound = chat_core.trim_history(st.session_state.messages)
+    outbound = chat_core.trim_history(
+        st.session_state.messages + [{"role": "user", "content": prompt}]
+    )
 
     try:
         st.session_state.request_count += 1
@@ -131,4 +136,7 @@ if prompt := st.chat_input("What is up?"):
         st.error(chat_core.safe_error_message(exc))
         st.stop()
 
+    # Both halves of the turn are committed together, once there is something to
+    # commit. Either the exchange is in history or neither side of it is.
+    st.session_state.messages.append({"role": "user", "content": prompt})
     st.session_state.messages.append({"role": "assistant", "content": response})

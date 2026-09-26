@@ -29,6 +29,7 @@ SKILLS=(
   ogenic-secure
   ogenic-ship
   strix
+  herdr
 )
 
 COMMANDS=(
